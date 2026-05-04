@@ -29,16 +29,13 @@ jobs:
         host: ${{ secrets.FRONTEND_IP }}
         username: ec2-user
         key: ${{ secrets.EC2_SSH_KEY }}
+        envs: secrets.BACKEND_IP,secrets.EC2_SSH_KEY
         script: |
-          echo "${{ secrets.EC2_SSH_KEY }}" > backend.pem
-          chmod 400 backend.pem
-          ssh -o StrictHostKeyChecking=no -i backend.pem ec2-user@${{ secrets.BACKEND_IP }} "
-            sudo yum install -y docker
-            sudo systemctl start docker
-            sudo usermod -aG docker ec2-user
-            sudo docker pull nicolasmaker/innovatech-backend:latest
-            sudo docker stop backend || true
-            sudo docker rm backend || true
-            sudo docker run -d --name backend -p 3000:3000 nicolasmaker/innovatech-backend:latest
-          "
+          sudo yum install -y docker
+          sudo service docker start
+          sudo usermod -a -G docker ec2-user
+          sudo docker pull nicolasmaker/innovatech-backend:latest
+          sudo docker stop backend || true
+          sudo docker rm backend || true
+          sudo docker run -d --name backend -p 3000:3000 nicolasmaker/innovatech-backend:latest
 
