@@ -23,19 +23,19 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-    - name: Deploy to EC2
-      uses: appleboy/ssh-action@master
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
       with:
-        host: ${{ secrets.FRONTEND_IP }}
-        username: ec2-user
-        key: ${{ secrets.EC2_SSH_KEY }}
-        envs: secrets.BACKEND_IP,secrets.EC2_SSH_KEY
-        script: |
-          sudo yum install -y docker
-          sudo service docker start
-          sudo usermod -a -G docker ec2-user
-          sudo docker pull nicolasmaker/innovatech-backend:latest
-          sudo docker stop backend || true
-          sudo docker rm backend || true
-          sudo docker run -d --name backend -p 3000:3000 nicolasmaker/innovatech-backend:latest
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: us-east-1
 
+    - name: Deploy to EC2 via AWS SSM
+      run: |
+        INSTANCE_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=EC2-Backend-Priv" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].InstanceId" --output text)
+        
+        aws ssm send-command \
+          --instance-ids "$INSTANCE_ID" \
+          --document-name "AWS-RunShellScript" \
+          --parameters '{"commands":["sudo yum install -y docker","sudo systemctl start docker","sudo usermod -aG docker ec2-user","sudo docker pull nicolasmaker/innovatech-backend:latest","sudo docker stop backend || true","sudo docker rm backend || true","sudo docker run -d --name backend -p 3000:3000 nicolasmaker/innovatech-backend:latest"]}'
